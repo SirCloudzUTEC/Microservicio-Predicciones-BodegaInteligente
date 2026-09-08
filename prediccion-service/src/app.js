@@ -1,5 +1,8 @@
 const express = require('express');
 const cors = require('cors');
+const mongoose = require('mongoose');
+const swaggerUi = require('swagger-ui-express');
+const swaggerSpec = require('./config/swagger');
 const prediccionesRoutes = require('./routes/predicciones.routes');
 
 function crearApp() {
@@ -9,8 +12,15 @@ function crearApp() {
   app.use(express.json());
 
   app.get('/health', (req, res) => {
-    res.json({ status: 'ok', servicio: 'prediccion-service' });
+    const mongoConectado = mongoose.connection.readyState === 1; // 1 = connected
+    res.status(mongoConectado ? 200 : 503).json({
+      status: mongoConectado ? 'ok' : 'degradado',
+      servicio: 'prediccion-service',
+      mongo: mongoose.STATES[mongoose.connection.readyState],
+    });
   });
+
+  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
   app.use('/api', prediccionesRoutes);
 

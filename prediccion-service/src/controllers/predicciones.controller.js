@@ -18,6 +18,14 @@ async function calcularParaProducto(productoId) {
     obtenerTiempoEntrega(productoId).catch(() => null), // proveedor es opcional
   ]);
 
+  if (!stockInfo || typeof stockInfo.stockActual !== 'number' || Number.isNaN(stockInfo.stockActual)) {
+    const error = new Error(
+      `Inventario devolvió datos inválidos para ${productoId} (stockActual ausente o no numérico)`
+    );
+    error.datosInvalidos = true;
+    throw error;
+  }
+
   const cantidadesDiarias = (ventasInfo.historial || []).map((h) => h.cantidad);
 
   const resultado = calcularPrediccion({
@@ -49,26 +57,31 @@ async function calcular(req, res) {
   }
 }
 
+/**
+ * Recalcula la predicción de todos los productos. Reutilizada tanto por el
+ * endpoint POST /calcular-todos como por el cron diario, para no duplicar
+ * lógica entre ambos.
+ */
+async function ejecutarRecalculoGlobal() {
+  const productos = await obtenerListaProductos();
+  const resultados = await Promise.allSettled(
+    productos.map((p) => calcularParaProducto(p.id))
+  );
+
+  const ok = resultados.filter((r) => r.status === 'fulfilled').map((r) => r.value);
+  const fallidos = resultados
+    .map((r, i) => ({ r, id: productos[i] && productos[i].id }))
+    .filter(({ r }) => r.status === 'rejected')
+    .map(({ r, id }) => ({ productoId: id, error: r.reason.message }));
+
+  return { total: productos.length, calculados: ok.length, fallidos, predicciones: ok };
+}
+
 // POST /api/predicciones/calcular-todos
 async function calcularTodos(req, res) {
   try {
-    const productos = await obtenerListaProductos();
-    const resultados = await Promise.allSettled(
-      productos.map((p) => calcularParaProducto(p.id))
-    );
-
-    const ok = resultados.filter((r) => r.status === 'fulfilled').map((r) => r.value);
-    const fallidos = resultados
-      .map((r, i) => ({ r, id: productos[i] && productos[i].id }))
-      .filter(({ r }) => r.status === 'rejected')
-      .map(({ r, id }) => ({ productoId: id, error: r.reason.message }));
-
-    res.status(207).json({
-      total: productos.length,
-      calculados: ok.length,
-      fallidos,
-      predicciones: ok,
-    });
+    const resultado = await ejecutarRecalculoGlobal();
+    res.status(207).json(resultado);
   } catch (err) {
     res.status(502).json({
       error: 'No se pudo obtener la lista de productos desde Inventario',
@@ -121,6 +134,14 @@ async function historial(req, res) {
 }
 
 function manejarErrorDependencia(res, err, productoId) {
+  if (err.datosInvalidos || err.name === 'ValidationError') {
+    // La dependencia respondió 200 pero con datos que no cumplen el
+    // contrato esperado, o Mongoose rechazó el documento al guardar.
+    return res.status(502).json({
+      error: `Datos inválidos recibidos al calcular la predicción de ${productoId}`,
+      detalle: err.errors ? err.errors : err.message,
+    });
+  }
   if (err.response) {
     // El microservicio dependiente respondió con error (ej. 404 producto no existe)
     return res.status(err.response.status).json({
@@ -141,4 +162,5 @@ module.exports = {
   obtenerUltima,
   listarUltimas,
   historial,
+  ejecutarRecalculoGlobal,
 };

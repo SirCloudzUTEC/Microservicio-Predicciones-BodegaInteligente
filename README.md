@@ -76,15 +76,20 @@ npm start
 
 ## Endpoints de `prediccion-service`
 
+`prediccion-service` expone **5 rutas de negocio** (montadas bajo `/api`)
+más `/health`. `?estado=` es un query param opcional de `GET /predicciones`,
+no una ruta aparte.
+
 | Método | Ruta                                   | Descripción                                                        |
 |--------|-----------------------------------------|----------------------------------------------------------------------|
-| GET    | `/health`                               | Chequeo de salud                                                     |
+| GET    | `/health`                               | Chequeo de salud (verifica también la conexión a MongoDB; 503 si está caída) |
 | POST   | `/api/predicciones/:productoId/calcular`| Recalcula y guarda la predicción de un producto                      |
-| POST   | `/api/predicciones/calcular-todos`      | Recalcula todos los productos (para correr por cron)                 |
+| POST   | `/api/predicciones/calcular-todos`      | Recalcula todos los productos (también lo llama el cron diario)      |
 | GET    | `/api/predicciones/:productoId`         | Última predicción guardada de un producto                            |
 | GET    | `/api/predicciones/:productoId/historial`| Historial de predicciones de un producto (para graficar tendencia)  |
-| GET    | `/api/predicciones`                     | Última predicción de **todos** los productos (consumida por Alertas y el frontend) |
-| GET    | `/api/predicciones?estado=rojo`         | Filtra solo los productos en un estado del semáforo                  |
+| GET    | `/api/predicciones` (+ `?estado=rojo` opcional) | Última predicción de **todos** los productos, opcionalmente filtrada por color del semáforo (consumida por Alertas y el frontend) |
+
+Documentación interactiva completa (Swagger-UI): **`http://localhost:4004/api-docs`**.
 
 Ejemplo de respuesta de `GET /api/predicciones/P004`:
 
@@ -141,12 +146,49 @@ Cuando estén listos, solo hay que cambiar las variables de entorno
 `INVENTARIO_URL`, `VENTAS_URL` y `PROVEEDORES_URL` en `prediccion-service`
 (o en `docker-compose.yml`) y borrar la carpeta `mocks/`.
 
+## Carga masiva de datos (seed)
+
+Para cumplir el requisito de rúbrica de ≥20,000 registros en la base de
+datos, hay un script que genera predicciones históricas sintéticas y
+coherentes (usa la misma función `calcularPrediccion()` real) para 60
+productos ficticios `P009`–`P068`, **fuera** del rango `P001`–`P008` que
+usan los mocks, para no contaminar las respuestas de demo:
+
+```bash
+cd prediccion-service
+npm run seed        # inserta ~21,000 documentos (idempotente: no duplica si ya existen)
+npm run seed:drop   # borra el rango P009-P068 y vuelve a insertar desde cero
+```
+
+## Tests
+
+```bash
+cd prediccion-service
+npm test
+```
+
+Suite Jest + Supertest: pruebas unitarias de `forecasting.js` (los 3
+escenarios validados a mano: consumo estable, consumo creciente con poco
+stock, sin historial) y pruebas de integración de los 5 endpoints
+(mockeando Mongoose y los clientes HTTP), incluyendo un test de regresión
+que confirma que un error de Mongo devuelve `500` y no cuelga la request.
+
+## Cron de recálculo automático
+
+`prediccion-service` recalcula todos los productos automáticamente una vez
+al día (por defecto 3am hora de Lima), sin depender de que alguien llame al
+endpoint a mano. Configurable con las variables de entorno
+`CRON_RECALCULO` (expresión cron) y `CRON_TZ` (zona horaria IANA).
+
 ## Pendiente para el entregable final de Persona 4
 
-- [ ] Exponer `prediccion-service` en Swagger-UI (agregar `swagger-jsdoc` +
-      `swagger-ui-express`, documentar cada ruta).
+- [x] Exponer `prediccion-service` en Swagger-UI.
+- [x] Script de carga masiva (≥20,000 registros).
+- [x] Cron diario de recálculo automático.
+- [x] Tests formales (Jest + Supertest).
 - [ ] Subir el repo a GitHub público.
 - [ ] Reemplazar los mocks por las URLs reales de Inventario, Ventas y
       Proveedores apenas Persona 1, 2 y 3 los desplieguen.
-- [ ] Agregar un `cron` (ej. `node-cron`) que llame a
-      `POST /api/predicciones/calcular-todos` una vez al día.
+
+Ver `PROGRESO.md` en la raíz del repo para el detalle operativo de qué se
+hizo, por qué, y qué sigue pendiente.

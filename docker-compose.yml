@@ -52,6 +52,8 @@ services:
       INVENTARIO_URL: http://inventario-mock:4001
       VENTAS_URL: http://ventas-mock:4002
       PROVEEDORES_URL: http://proveedores-mock:4003
+      CRON_RECALCULO: "0 3 * * *"
+      CRON_TZ: America/Lima
     depends_on:
       - mongo
       - inventario-mock
