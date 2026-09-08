@@ -1,0 +1,75 @@
+{
+  "info": {
+    "name": "Persona 4 - Predicción de quiebre de stock",
+    "description": "Colección para probar prediccion-service junto con los mocks de Inventario, Ventas y Proveedores. Cambia la variable base_url si corres los servicios en otros puertos.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:4004" },
+    { "key": "inventario_url", "value": "http://localhost:4001" },
+    { "key": "ventas_url", "value": "http://localhost:4002" },
+    { "key": "proveedores_url", "value": "http://localhost:4003" },
+    { "key": "producto_id", "value": "P004" }
+  ],
+  "item": [
+    {
+      "name": "Predicción - health check",
+      "request": { "method": "GET", "url": "{{base_url}}/health" }
+    },
+    {
+      "name": "Predicción - calcular un producto",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/api/predicciones/{{producto_id}}/calcular"
+      }
+    },
+    {
+      "name": "Predicción - calcular todos los productos",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/api/predicciones/calcular-todos"
+      }
+    },
+    {
+      "name": "Predicción - última predicción de un producto",
+      "request": { "method": "GET", "url": "{{base_url}}/api/predicciones/{{producto_id}}" }
+    },
+    {
+      "name": "Predicción - historial de un producto",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/api/predicciones/{{producto_id}}/historial?limite=10"
+      }
+    },
+    {
+      "name": "Predicción - listar última de todos (semáforo)",
+      "request": { "method": "GET", "url": "{{base_url}}/api/predicciones" }
+    },
+    {
+      "name": "Predicción - listar solo en rojo",
+      "request": { "method": "GET", "url": "{{base_url}}/api/predicciones?estado=rojo" }
+    },
+    {
+      "name": "Mock Inventario - listar productos",
+      "request": { "method": "GET", "url": "{{inventario_url}}/productos" }
+    },
+    {
+      "name": "Mock Inventario - stock de un producto",
+      "request": { "method": "GET", "url": "{{inventario_url}}/productos/{{producto_id}}/stock" }
+    },
+    {
+      "name": "Mock Ventas - historial de un producto",
+      "request": {
+        "method": "GET",
+        "url": "{{ventas_url}}/productos/{{producto_id}}/historial?dias=14"
+      }
+    },
+    {
+      "name": "Mock Proveedores - tiempo de entrega",
+      "request": {
+        "method": "GET",
+        "url": "{{proveedores_url}}/productos/{{producto_id}}/tiempo-entrega"
+      }
+    }
+  ]
+}

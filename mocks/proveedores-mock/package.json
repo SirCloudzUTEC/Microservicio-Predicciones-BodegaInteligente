@@ -1,0 +1,8 @@
+{
+  "name": "proveedores-mock",
+  "version": "1.0.0",
+  "description": "Mock temporal para probar prediccion-service (Persona 4) end-to-end",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "dependencies": { "express": "^4.19.2" }
+}

@@ -1,0 +1,68 @@
+version: "3.8"
+
+services:
+  mongo:
+    image: mongo:7
+    container_name: prediccion-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - bodega-net
+
+  inventario-mock:
+    build: ./mocks/inventario-mock
+    container_name: inventario-mock
+    ports:
+      - "4001:4001"
+    environment:
+      PORT: 4001
+    networks:
+      - bodega-net
+
+  ventas-mock:
+    build: ./mocks/ventas-mock
+    container_name: ventas-mock
+    ports:
+      - "4002:4002"
+    environment:
+      PORT: 4002
+    networks:
+      - bodega-net
+
+  proveedores-mock:
+    build: ./mocks/proveedores-mock
+    container_name: proveedores-mock
+    ports:
+      - "4003:4003"
+    environment:
+      PORT: 4003
+    networks:
+      - bodega-net
+
+  prediccion-service:
+    build: ./prediccion-service
+    container_name: prediccion-service
+    ports:
+      - "4004:4004"
+    environment:
+      PORT: 4004
+      MONGO_URI: mongodb://mongo:27017/prediccion_db
+      INVENTARIO_URL: http://inventario-mock:4001
+      VENTAS_URL: http://ventas-mock:4002
+      PROVEEDORES_URL: http://proveedores-mock:4003
+    depends_on:
+      - mongo
+      - inventario-mock
+      - ventas-mock
+      - proveedores-mock
+    networks:
+      - bodega-net
+
+networks:
+  bodega-net:
+    driver: bridge
+
+volumes:
+  mongo-data:
